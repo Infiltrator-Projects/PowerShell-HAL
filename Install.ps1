@@ -11,24 +11,18 @@ if (-not (Test-Path $sourceModule) -or -not (Test-Path $sourceManifest)) {
 }
 
 $documents = [Environment]::GetFolderPath('MyDocuments')
-$moduleBase = if ($PSVersionTable.PSEdition -eq 'Core') {
-    Join-Path $documents 'PowerShell\Modules'
-}
-else {
-    Join-Path $documents 'WindowsPowerShell\Modules'
-}
-
-$destination = Join-Path $moduleBase "$moduleName\$version"
-New-Item -ItemType Directory -Path $destination -Force | Out-Null
-Copy-Item $sourceModule (Join-Path $destination 'PowerShellHAL.psm1') -Force
-Copy-Item $sourceManifest (Join-Path $destination 'PowerShellHAL.psd1') -Force
-
-$profilePath = $PROFILE.CurrentUserAllHosts
-$profileDirectory = Split-Path -Parent $profilePath
-New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
-if (-not (Test-Path $profilePath)) {
-    New-Item -ItemType File -Path $profilePath -Force | Out-Null
-}
+$targets = @(
+    [pscustomobject]@{
+        Name = 'Windows PowerShell'
+        ModuleBase = Join-Path $documents 'WindowsPowerShell\Modules'
+        ProfilePath = Join-Path $documents 'WindowsPowerShell\profile.ps1'
+    },
+    [pscustomobject]@{
+        Name = 'PowerShell 7+'
+        ModuleBase = Join-Path $documents 'PowerShell\Modules'
+        ProfilePath = Join-Path $documents 'PowerShell\profile.ps1'
+    }
+)
 
 $startMarker = '# >>> PowerShell HAL >>>'
 $endMarker = '# <<< PowerShell HAL <<<'
@@ -39,21 +33,43 @@ Enable-PowerShellHAL -Chord 'Ctrl+Spacebar'
 $endMarker
 "@
 
-$profileText = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
-if ($null -eq $profileText) { $profileText = '' }
+foreach ($target in $targets) {
+    $destination = Join-Path $target.ModuleBase "$moduleName\$version"
+    New-Item -ItemType Directory -Path $destination -Force | Out-Null
+    Copy-Item $sourceModule (Join-Path $destination 'PowerShellHAL.psm1') -Force
+    Copy-Item $sourceManifest (Join-Path $destination 'PowerShellHAL.psd1') -Force
 
-$escapedStart = [regex]::Escape($startMarker)
-$escapedEnd = [regex]::Escape($endMarker)
-$pattern = "(?s)$escapedStart.*?$escapedEnd\s*"
-$profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd()
+    $profileDirectory = Split-Path -Parent $target.ProfilePath
+    New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
+    if (-not (Test-Path $target.ProfilePath)) {
+        New-Item -ItemType File -Path $target.ProfilePath -Force | Out-Null
+    }
 
-if ($profileText.Length -gt 0) {
-    $profileText += "`r`n`r`n"
+    $profileText = Get-Content $target.ProfilePath -Raw -ErrorAction SilentlyContinue
+    if ($null -eq $profileText) { $profileText = '' }
+
+    $escapedStart = [regex]::Escape($startMarker)
+    $escapedEnd = [regex]::Escape($endMarker)
+    $pattern = "(?s)$escapedStart.*?$escapedEnd\s*"
+    $profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd()
+
+    if ($profileText.Length -gt 0) {
+        $profileText += "`r`n`r`n"
+    }
+    $profileText += $profileBlock
+    Set-Content -Path $target.ProfilePath -Value $profileText -Encoding UTF8
+
+    Write-Host "Configured $($target.Name)." -ForegroundColor DarkGray
 }
-$profileText += $profileBlock
-Set-Content -Path $profilePath -Value $profileText -Encoding UTF8
 
-Import-Module (Join-Path $destination 'PowerShellHAL.psd1') -Force
+$currentModuleBase = if ($PSVersionTable.PSEdition -eq 'Core') {
+    Join-Path $documents 'PowerShell\Modules'
+}
+else {
+    Join-Path $documents 'WindowsPowerShell\Modules'
+}
+$currentDestination = Join-Path $currentModuleBase "$moduleName\$version"
+Import-Module (Join-Path $currentDestination 'PowerShellHAL.psd1') -Force
 Enable-PowerShellHAL -Chord 'Ctrl+Spacebar'
 
 Write-Host ''
