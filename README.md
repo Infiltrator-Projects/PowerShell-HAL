@@ -77,4 +77,4 @@ No background agent, no autonomous execution, no hidden command runner.
 
 ## Engineering and validation
 
-The [module manifest](PowerShellHAL.psd1) owns release identity. The [engineering philosophy](PHILOSOPHY.md), [architecture](docs/ARCHITECTURE.md) and [validation](docs/VALIDATION.md) define the maintained contracts. [Releases](https://github.com/Infiltrator-Projects/PowerShell-HAL/releases/latest) contain the exact tested source ZIP and checksums.
+The [module manifest](PowerShellHAL.psd1) owns release identity. The [engineering philosophy](docs/PHILOSOPHY.md), [architecture](docs/ARCHITECTURE.md) and [validation](docs/VALIDATION.md) define the maintained contracts. [Releases](https://github.com/Infiltrator-Projects/PowerShell-HAL/releases/latest) contain the exact tested source ZIP and checksums.
