@@ -13,23 +13,15 @@ jobs:
   verify:
     runs-on: windows-2022
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Parse scripts and run isolated contracts
-        shell: ${{ matrix.shell }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Get-ChildItem -Recurse -File | Where-Object { $_.Extension -in '.ps1','.psm1','.psd1' } | ForEach-Object {
-            $tokens = $null
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors.Count -gt 0) { throw ($errors | Out-String) }
-          }
-          & ./tests/contracts.ps1
+      - name: Verify Windows PowerShell 5.1
+        shell: powershell
+        run: ./tests/verify.ps1
+      - name: Verify PowerShell 7
+        shell: pwsh
+        run: ./tests/verify.ps1
+
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
