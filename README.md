@@ -28,7 +28,7 @@ Download or clone this repository, then double-click:
 
 `Install.cmd`
 
-The installer copies the module into the current Windows PowerShell module path and adds the HAL binding to your current-user PowerShell profile.
+The installer copies the module into both the Windows PowerShell and PowerShell 7 module paths and adds the HAL binding to their current-user profiles. The module manifest owns the installed version.
 
 `Ctrl+Spacebar` normally belongs to PSReadLine's `MenuComplete`; PowerShell HAL deliberately takes that chord while enabled.
 
@@ -69,8 +69,12 @@ Invoke-PowerShellHAL -Request 'show stopped automatic services'
 
 ## Design rule
 
-Version 0.1.0 has one job:
+The application has one job:
 
 **natural language -> PowerShell -> insert at cursor -> user decides whether to press Enter**
 
 No background agent, no autonomous execution, no hidden command runner.
+
+## Engineering and validation
+
+The [module manifest](PowerShellHAL.psd1) owns release identity. The [engineering philosophy](PHILOSOPHY.md), [architecture](docs/ARCHITECTURE.md) and [validation](docs/VALIDATION.md) define the maintained contracts. [Releases](https://github.com/Infiltrator-Projects/PowerShell-HAL/releases/latest) contain the exact tested source ZIP and checksums.

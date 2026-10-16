@@ -1,7 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
 $moduleName = 'PowerShellHAL'
-$version = '0.1.0'
 $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sourceModule = Join-Path $sourceRoot 'PowerShellHAL.psm1'
 $sourceManifest = Join-Path $sourceRoot 'PowerShellHAL.psd1'
@@ -9,6 +8,9 @@ $sourceManifest = Join-Path $sourceRoot 'PowerShellHAL.psd1'
 if (-not (Test-Path $sourceModule) -or -not (Test-Path $sourceManifest)) {
     throw 'PowerShellHAL.psm1 and PowerShellHAL.psd1 must be beside Install.ps1.'
 }
+
+$manifest = Import-PowerShellDataFile -LiteralPath $sourceManifest
+$version = ([Version]$manifest.ModuleVersion).ToString()
 
 $documents = [Environment]::GetFolderPath('MyDocuments')
 $targets = @(
@@ -73,7 +75,7 @@ Import-Module (Join-Path $currentDestination 'PowerShellHAL.psd1') -Force
 Enable-PowerShellHAL -Chord 'Ctrl+Spacebar'
 
 Write-Host ''
-Write-Host 'PowerShell HAL 0.1.0 installed.' -ForegroundColor Green
+Write-Host "PowerShell HAL $version installed." -ForegroundColor Green
 Write-Host 'Ctrl+Spacebar opens HAL and inserts the generated command into the current PowerShell prompt.'
 Write-Host 'HAL never presses Enter for you.'
 Write-Host ''

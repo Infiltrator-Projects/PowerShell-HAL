@@ -95,7 +95,7 @@ function Invoke-PowerShellHAL {
     $model = Get-PowerShellHALModel
     $edition = $PSVersionTable.PSEdition
     $version = $PSVersionTable.PSVersion.ToString()
-    $platform = if ($PSVersionTable.PSObject.Properties.Name -contains 'Platform') {
+    $platform = if ($PSVersionTable.ContainsKey('Platform')) {
         $PSVersionTable.Platform
     }
     elseif ($env:OS -eq 'Windows_NT') {
@@ -152,11 +152,28 @@ Existing command-line buffer: $CurrentLine
         throw "OpenAI request failed: $message"
     }
 
+    # An incomplete generation may be syntactically plausible PowerShell. It must
+    # never reach the editable buffer as if it were a complete command.
+    if ($null -eq $response -or -not $response.PSObject.Properties['status'] -or
+        $response.status -ne 'completed') {
+        throw 'The model did not complete the command. Try a smaller request.'
+    }
+    if (-not $response.PSObject.Properties['output']) {
+        throw 'The model response contains no command output.'
+    }
+
     $parts = @()
     foreach ($item in @($response.output)) {
+        if ($null -eq $item -or -not $item.PSObject.Properties['type']) { continue }
         if ($item.type -ne 'message') { continue }
+        if (-not $item.PSObject.Properties['content']) { continue }
         foreach ($content in @($item.content)) {
-            if ($content.type -eq 'output_text' -and $content.text) {
+            if ($null -eq $content -or -not $content.PSObject.Properties['type']) { continue }
+            if ($content.type -eq 'refusal') {
+                throw 'The model declined to generate this command.'
+            }
+            if ($content.type -eq 'output_text' -and
+                $content.PSObject.Properties['text'] -and $content.text) {
                 $parts += [string]$content.text
             }
         }
@@ -184,8 +201,6 @@ function Enable-PowerShellHAL {
         Import-Module PSReadLine -ErrorAction Stop
     }
 
-    $script:PowerShellHALChord = $Chord
-
     Set-PSReadLineKeyHandler -Chord $Chord -BriefDescription 'PowerShell HAL' -Description 'Ask HAL for PowerShell and insert the generated command at the cursor.' -ScriptBlock {
         param($key, $arg)
 
@@ -209,6 +224,11 @@ function Enable-PowerShellHAL {
             Write-Host "`nPowerShell HAL: $($_.Exception.Message)" -ForegroundColor Red
         }
     }
+    if ($script:PowerShellHALChord -and $script:PowerShellHALChord -ne $Chord) {
+        Disable-PowerShellHAL
+    }
+
+    $script:PowerShellHALChord = $Chord
 }
 
 function Disable-PowerShellHAL {
@@ -228,5 +248,7 @@ function Disable-PowerShellHAL {
 
     $script:PowerShellHALChord = $null
 }
+
+$ExecutionContext.SessionState.Module.OnRemove = { Disable-PowerShellHAL }
 
 Export-ModuleMember -Function Show-PowerShellHALPrompt, Invoke-PowerShellHAL, Enable-PowerShellHAL, Disable-PowerShellHAL
