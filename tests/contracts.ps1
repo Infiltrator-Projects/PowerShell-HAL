@@ -7,7 +7,11 @@ try {
     $env:OPENAI_API_KEY = 'fixture-key-never-sent'
     & $module {
         $script:ResponseFixture = $null
-        $script:Handlers = @{}
+        $script:Handlers = @{
+            'Ctrl+Spacebar' = 'MenuComplete'
+            'Ctrl+h' = 'HistorySearchBackward'
+            'Ctrl+j' = 'Custom'
+        }
         $script:Removed = New-Object 'System.Collections.Generic.List[string]'
         function script:Invoke-RestMethod {
             param($Uri, $Method, $Headers, $Body, $TimeoutSec)
@@ -16,6 +20,12 @@ try {
             return $script:ResponseFixture
         }
         function script:Get-Module { param($Name) return [pscustomobject]@{ Name = 'PSReadLine' } }
+        function script:Get-PSReadLineKeyHandler {
+            param($Chord, $ErrorAction)
+            if ($script:Handlers.ContainsKey($Chord)) {
+                return [pscustomobject]@{ Function = $script:Handlers[$Chord] }
+            }
+        }
         function script:Set-PSReadLineKeyHandler {
             param($Chord, $BriefDescription, $Description, $ScriptBlock, $Function)
             if ($Chord -eq 'Invalid') { throw 'Invalid chord' }
@@ -79,14 +89,24 @@ try {
 
         Enable-PowerShellHAL
         Check ($script:Handlers['Ctrl+Spacebar'] -eq 'HAL') 'Default chord was not bound'
+        Enable-PowerShellHAL
+        Check ($script:Handlers['Ctrl+Spacebar'] -eq 'HAL') 'Re-enabling default chord changed its handler'
         Reject { Enable-PowerShellHAL -Chord 'Invalid' } 'Invalid chord'
         Check ($script:Handlers['Ctrl+Spacebar'] -eq 'HAL') 'Failed rebind removed the active handler'
+        Reject { Enable-PowerShellHAL -Chord 'Ctrl+j' } 'custom PSReadLine handler'
+        Check ($script:Handlers['Ctrl+j'] -eq 'Custom') 'Custom binding was overwritten'
+        Check ($script:Handlers['Ctrl+Spacebar'] -eq 'HAL') 'Custom-binding rejection removed the active handler'
         Enable-PowerShellHAL -Chord 'Ctrl+h'
-        Check ($script:Handlers['Ctrl+Spacebar'] -eq 'MenuComplete') 'Old chord was not restored'
+        Check ($script:Handlers['Ctrl+Spacebar'] -eq 'MenuComplete') 'Original default binding was not restored'
         Check ($script:Handlers['Ctrl+h'] -eq 'HAL') 'New chord was not bound'
         Disable-PowerShellHAL
-        Check (-not $script:Handlers.ContainsKey('Ctrl+h')) 'Old HAL handler survived disable'
+        Check ($script:Handlers['Ctrl+h'] -eq 'HistorySearchBackward') 'Original non-default binding was not restored'
         Disable-PowerShellHAL
+        Enable-PowerShellHAL -Chord 'Ctrl+n'
+        Check ($script:Handlers['Ctrl+n'] -eq 'HAL') 'Previously unbound chord was not bound'
+        Disable-PowerShellHAL
+        Check (-not $script:Handlers.ContainsKey('Ctrl+n')) 'Previously unbound chord survived disable'
+        Check ($script:Handlers['Ctrl+j'] -eq 'Custom') 'Custom handler changed during rebind tests'
     }
     'PowerShell HAL response and binding contracts passed.'
 }
