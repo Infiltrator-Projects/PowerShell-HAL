@@ -1,6 +1,7 @@
 Set-StrictMode -Version Latest
 
 $script:PowerShellHALChord = $null
+$script:PowerShellHALPreviousHandler = $null
 
 function Get-PowerShellHALModel {
     if (-not [string]::IsNullOrWhiteSpace($env:POWERSHELL_HAL_MODEL)) {
@@ -201,6 +202,18 @@ function Enable-PowerShellHAL {
         Import-Module PSReadLine -ErrorAction Stop
     }
 
+    # Re-enabling the same chord must not snapshot our own handler.
+    if ($script:PowerShellHALChord -eq $Chord) {
+        return
+    }
+
+    $previousHandler = Get-PSReadLineKeyHandler -Chord $Chord -ErrorAction SilentlyContinue
+    # PSReadLine does not expose the scriptblock behind a 'Custom' handler,
+    # so taking that chord would make it impossible to restore faithfully.
+    if ($null -ne $previousHandler -and $previousHandler.Function -eq 'Custom') {
+        throw "The '$Chord' chord already has a custom PSReadLine handler. Choose a different chord."
+    }
+
     Set-PSReadLineKeyHandler -Chord $Chord -BriefDescription 'PowerShell HAL' -Description 'Ask HAL for PowerShell and insert the generated command at the cursor.' -ScriptBlock {
         param($key, $arg)
 
@@ -224,11 +237,32 @@ function Enable-PowerShellHAL {
             Write-Host "`nPowerShell HAL: $($_.Exception.Message)" -ForegroundColor Red
         }
     }
-    if ($script:PowerShellHALChord -and $script:PowerShellHALChord -ne $Chord) {
-        Disable-PowerShellHAL
+    # Restore the old chord only after the new chord has been installed.
+    # An invalid new chord must never discard a working HAL binding.
+    if ($script:PowerShellHALChord) {
+        Restore-PowerShellHALBinding -Chord $script:PowerShellHALChord -PreviousHandler $script:PowerShellHALPreviousHandler
     }
 
     $script:PowerShellHALChord = $Chord
+    $script:PowerShellHALPreviousHandler = $previousHandler
+}
+
+function Restore-PowerShellHALBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Chord,
+
+        $PreviousHandler
+    )
+
+    if ($null -ne $PreviousHandler -and
+        -not [string]::IsNullOrWhiteSpace([string]$PreviousHandler.Function)) {
+        Set-PSReadLineKeyHandler -Chord $Chord -Function ([string]$PreviousHandler.Function)
+    }
+    else {
+        Remove-PSReadLineKeyHandler -Chord $Chord -ErrorAction SilentlyContinue
+    }
 }
 
 function Disable-PowerShellHAL {
@@ -239,14 +273,9 @@ function Disable-PowerShellHAL {
         return
     }
 
-    $chord = $script:PowerShellHALChord
-    Remove-PSReadLineKeyHandler -Chord $chord -ErrorAction SilentlyContinue
-
-    if ($chord -eq 'Ctrl+Spacebar') {
-        Set-PSReadLineKeyHandler -Chord 'Ctrl+Spacebar' -Function MenuComplete
-    }
-
+    Restore-PowerShellHALBinding -Chord $script:PowerShellHALChord -PreviousHandler $script:PowerShellHALPreviousHandler
     $script:PowerShellHALChord = $null
+    $script:PowerShellHALPreviousHandler = $null
 }
 
 $ExecutionContext.SessionState.Module.OnRemove = { Disable-PowerShellHAL }
