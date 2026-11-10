@@ -59,7 +59,7 @@ foreach ($target in $targets) {
         throw "Incomplete PowerShell HAL profile markers in $($target.ProfilePath)."
     }
     $pattern = "(?ms)^$escapedStart\r?\n.*?^$escapedEnd[ \t]*(?:\r?\n)?"
-    $profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd([char[]]"\r\n")
+    $profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd([char[]]@([char]13, [char]10))
 
     if ($profileText.Length -gt 0) {
         $profileText += "`r`n`r`n"
