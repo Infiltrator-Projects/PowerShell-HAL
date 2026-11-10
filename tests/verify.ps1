@@ -12,3 +12,4 @@ Get-ChildItem -LiteralPath $root -Recurse -File |
         if ($errors.Count -gt 0) { throw ($errors | Out-String) }
     }
 & (Join-Path $PSScriptRoot 'contracts.ps1')
+& (Join-Path $PSScriptRoot 'profile_preservation.ps1')

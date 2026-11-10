@@ -28,12 +28,11 @@ $targets = @(
 
 $startMarker = '# >>> PowerShell HAL >>>'
 $endMarker = '# <<< PowerShell HAL <<<'
-$profileBlock = @"
-$startMarker
-Import-Module PowerShellHAL -ErrorAction SilentlyContinue
-Enable-PowerShellHAL -Chord 'Ctrl+Spacebar'
-$endMarker
-"@
+$profileLines = @(
+    'Import-Module PowerShellHAL -ErrorAction SilentlyContinue'
+    "Enable-PowerShellHAL -Chord 'Ctrl+Spacebar'"
+)
+. (Join-Path $sourceRoot 'Profile-Edit.ps1')
 
 foreach ($target in $targets) {
     $destination = Join-Path $target.ModuleBase "$moduleName\$version"
@@ -43,30 +42,7 @@ foreach ($target in $targets) {
 
     $profileDirectory = Split-Path -Parent $target.ProfilePath
     New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
-    if (-not (Test-Path $target.ProfilePath)) {
-        New-Item -ItemType File -Path $target.ProfilePath -Force | Out-Null
-    }
-
-    $profileText = Get-Content $target.ProfilePath -Raw -ErrorAction SilentlyContinue
-    if ($null -eq $profileText) { $profileText = '' }
-
-    $escapedStart = [regex]::Escape($startMarker)
-    $escapedEnd = [regex]::Escape($endMarker)
-    # A broken/partial marker pair must not cause a second injected profile block.
-    $hasStart = [regex]::IsMatch($profileText, "(?m)^$escapedStart\s*$")
-    $hasEnd = [regex]::IsMatch($profileText, "(?m)^$escapedEnd\s*$")
-    if ($hasStart -ne $hasEnd) {
-        throw "Incomplete PowerShell HAL profile markers in $($target.ProfilePath)."
-    }
-    $pattern = "(?ms)^$escapedStart\r?\n.*?^$escapedEnd[ \t]*(?:\r?\n)?"
-    $profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd([char[]]@([char]13, [char]10))
-
-    if ($profileText.Length -gt 0) {
-        $profileText += "`r`n`r`n"
-    }
-    $profileText += $profileBlock
-    Set-Content -Path $target.ProfilePath -Value $profileText -Encoding UTF8
-
+    Set-PowerShellHALProfileBlock -Path $target.ProfilePath -StartMarker $startMarker -EndMarker $endMarker -BodyLines $profileLines
     Write-Host "Configured $($target.Name)." -ForegroundColor DarkGray
 }
 
