@@ -9,10 +9,9 @@ function Set-PowerShellHALProfileBlock {
         [Parameter(Mandatory)][string[]]$BodyLines
     )
 
-    $bytes = if ([System.IO.File]::Exists($Path)) {
-        [System.IO.File]::ReadAllBytes($Path)
-    } else {
-        [byte[]]@()
+    [byte[]]$bytes = @()
+    if ([System.IO.File]::Exists($Path)) {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
     }
     $skip = 0
     $encoding = [System.Text.UTF8Encoding]::new($false, $true)
