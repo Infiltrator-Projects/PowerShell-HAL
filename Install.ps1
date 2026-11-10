@@ -52,8 +52,14 @@ foreach ($target in $targets) {
 
     $escapedStart = [regex]::Escape($startMarker)
     $escapedEnd = [regex]::Escape($endMarker)
-    $pattern = "(?s)$escapedStart.*?$escapedEnd\s*"
-    $profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd()
+    # A broken/partial marker pair must not cause a second injected profile block.
+    $hasStart = [regex]::IsMatch($profileText, "(?m)^$escapedStart\s*$")
+    $hasEnd = [regex]::IsMatch($profileText, "(?m)^$escapedEnd\s*$")
+    if ($hasStart -ne $hasEnd) {
+        throw "Incomplete PowerShell HAL profile markers in $($target.ProfilePath)."
+    }
+    $pattern = "(?ms)^$escapedStart\r?\n.*?^$escapedEnd[ \t]*(?:\r?\n)?"
+    $profileText = [regex]::Replace($profileText, $pattern, '').TrimEnd([char[]]@([char]13, [char]10))
 
     if ($profileText.Length -gt 0) {
         $profileText += "`r`n`r`n"
