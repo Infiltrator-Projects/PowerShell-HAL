@@ -1,6 +1,6 @@
 @{
     RootModule = 'PowerShellHAL.psm1'
-    ModuleVersion = '0.1.3'
+    ModuleVersion = '0.1.4'
     GUID = '3d4a1fd0-928a-4b3f-9ad3-e9e1457d3396'
     Author = 'Infiltrator Projects'
     CompanyName = 'Infiltrator Projects'
